@@ -31,6 +31,10 @@ export interface RawPost {
   music_info: Record<string, unknown> | null;
   posted_at: string | null;
   metrics: PostMetrics;
+  /** Transcricao pre-extraida pelo scraper (ex: legenda auto do YT). Quando presente, o analisador pula o Whisper. */
+  transcript: string | null;
+  /** Origem do `transcript` — `youtube_auto_subs:<lang>` etc. */
+  transcript_source: string | null;
 }
 
 /** Resultado da analise de 1 post (Camada 1 + Camada 2 mescladas). */

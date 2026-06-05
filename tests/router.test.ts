@@ -30,6 +30,8 @@ function fixture(p: Partial<RawPost> & { platform: Platform }): RawPost {
       saves_count: 0,
       comments_count: 0,
     },
+    transcript: p.transcript ?? null,
+    transcript_source: p.transcript_source ?? null,
   };
 }
 

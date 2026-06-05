@@ -109,7 +109,15 @@ async function analyzeOnePost(
     const isVideoRaw =
       !raw.iscarousel &&
       (raw.mediatype === 'video' || (raw.duration_seconds != null && raw.duration_seconds > 0));
-    if (isVideoRaw && (raw.videourl || raw.posturl)) {
+    if (raw.transcript && raw.transcript.trim().length > 0) {
+      // Curto-circuito: o scraper ja salvou a legenda automatica (ex: YT via
+      // yt-dlp --write-auto-subs). Usa direto e nao chama Whisper.
+      transcript = raw.transcript;
+      logger.info(
+        `[${username}/${platform}] transcript reaproveitado de ${raw.transcript_source ?? 'sem source'} p/ ${raw.postid} (${transcript.length} chars)`,
+        {},
+      );
+    } else if (isVideoRaw && (raw.videourl || raw.posturl)) {
       const t = await transcribeVideo({
         videourl: raw.videourl,
         pageurl: raw.posturl,

@@ -61,6 +61,8 @@ export const tiktokScraper: ScraperAdapter = async (username, limit) => {
       hashtags: extractHashtags(it.hashtags),
       carouselimages: null,
       music_info: it.musicMeta ?? null,
+      transcript: null,
+      transcript_source: null,
     }))
     .filter((p) => p.postid.length > 0);
 };

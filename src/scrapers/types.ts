@@ -28,6 +28,10 @@ export interface RawScrapedPost {
   hashtags: string[] | null;
   carouselimages: string[] | null;
   music_info: Record<string, unknown> | null;
+  /** Texto transcrito pre-extraido (ex: legenda automatica do YT). null = analisador chama Whisper. */
+  transcript: string | null;
+  /** Origem do `transcript` — ex: `youtube_auto_subs:pt-BR`. */
+  transcript_source: string | null;
 }
 
 /** Cada adapter recebe (handle/username, max posts) e retorna posts brutos. */

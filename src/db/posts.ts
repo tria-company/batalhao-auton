@@ -90,6 +90,8 @@ export function mapRawRow(row: Row, platform: Platform, username: string): RawPo
       saves_count: num(row, 'saves_count'),
       comments_count: num(row, 'comments_count'),
     },
+    transcript: strOrNull(row, 'transcript'),
+    transcript_source: strOrNull(row, 'transcript_source'),
   };
 }
 

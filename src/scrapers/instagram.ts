@@ -61,6 +61,8 @@ function mapPost(p: ApifyIgPost): RawScrapedPost {
     hashtags: p.hashtags?.length ? p.hashtags : null,
     carouselimages: carousel,
     music_info: null,
+    transcript: null,
+    transcript_source: null,
   };
 }
 

@@ -1,5 +1,9 @@
 import { spawn } from 'node:child_process';
+import { promises as fs, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { config } from '../config';
+import { logger } from '../lib/logger';
 import type { RawScrapedPost, ScraperAdapter } from './types';
 
 /** Shape parcial do `--dump-json` do yt-dlp pra um video. */
@@ -54,32 +58,107 @@ function isoFromUploadDate(d: string): string | null {
 }
 
 /**
- * Lista os top-N videos do canal `@<username>` com metadados completos.
- * `--playlist-end` aplica o limite na URL do canal sem precisar paginar.
- * `--skip-download` garante que so descemos metadata (sem video).
+ * Converte WebVTT em texto corrido. Tira cabecalhos (WEBVTT/Kind/Language),
+ * marcadores de tempo (`00:00:01.000 --> 00:00:03.000`), cue ids numericos,
+ * tags inline (`<c>...</c>`, `<00:00:01.000>`) e duplica linhas consecutivas
+ * iguais (auto-captions repetem palavras entre cues por overlap).
+ */
+function vttToText(vtt: string): string {
+  const lines = vtt.split(/\r?\n/);
+  const out: string[] = [];
+  let prev = '';
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    if (line.startsWith('WEBVTT')) continue;
+    if (line.startsWith('NOTE')) continue;
+    if (line.startsWith('STYLE')) continue;
+    if (line.startsWith('Kind:') || line.startsWith('Language:')) continue;
+    if (line.includes('-->')) continue;
+    if (/^\d+$/.test(line)) continue;
+    const clean = line.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!clean) continue;
+    if (clean === prev) continue;
+    out.push(clean);
+    prev = clean;
+  }
+  return out.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Procura o .vtt do video por preferencia de idioma e devolve o texto extraido.
+ * Quando nenhum idioma esta disponivel (canal sem captions), devolve null.
+ */
+async function readCaption(
+  dir: string,
+  videoId: string,
+  files: string[],
+): Promise<{ text: string; lang: string } | null> {
+  const langPrefs = ['pt-BR', 'pt-br', 'pt', 'pt-PT', 'pt-pt'];
+  for (const lang of langPrefs) {
+    const fname = `${videoId}.${lang}.vtt`;
+    if (!files.includes(fname)) continue;
+    try {
+      const vtt = await fs.readFile(join(dir, fname), 'utf-8');
+      const text = vttToText(vtt);
+      if (text.length > 0) return { text, lang };
+    } catch {
+      // tenta o proximo idioma
+    }
+  }
+  return null;
+}
+
+/**
+ * Top-N videos do canal `@<username>/videos` com metadata + legenda automatica
+ * (quando o canal permite). yt-dlp roda 1 vez so com `--dump-json` (NDJSON em
+ * stdout) E `--write-auto-subs` (escreve .vtt em -P dir por video). Depois
+ * cruzamos cada video com seu .vtt e parseamos pra texto.
  */
 export const youtubeScraper: ScraperAdapter = async (username, limit) => {
   const channelUrl = `https://www.youtube.com/@${username}/videos`;
-  const items = await ytDlpJson([
-    '--dump-json',
-    '--skip-download',
-    '--playlist-end',
-    String(limit),
-    '--no-warnings',
-    '--ignore-errors',
-    channelUrl,
-  ]);
-  return items
-    .filter((v) => v && v.id)
-    .map((v): RawScrapedPost => {
+  const subsDir = mkdtempSync(join(tmpdir(), 'auton-yt-subs-'));
+  try {
+    const items = await ytDlpJson([
+      '--dump-json',
+      '--write-auto-subs',
+      '--sub-lang',
+      'pt-BR,pt-br,pt,pt-PT',
+      '--sub-format',
+      'vtt',
+      '--skip-download',
+      '--playlist-end',
+      String(limit),
+      '--no-warnings',
+      '--ignore-errors',
+      '-P',
+      subsDir,
+      '-o',
+      '%(id)s.%(ext)s',
+      channelUrl,
+    ]);
+
+    let subFiles: string[] = [];
+    try {
+      subFiles = await fs.readdir(subsDir);
+    } catch {
+      subFiles = [];
+    }
+
+    let captionsHit = 0;
+    const results: RawScrapedPost[] = [];
+    for (const v of items.filter((x) => x && x.id)) {
       const url = v.webpage_url ?? `https://www.youtube.com/watch?v=${v.id}`;
       const postedAt = v.timestamp
         ? new Date(v.timestamp * 1000).toISOString()
         : v.upload_date
           ? isoFromUploadDate(v.upload_date)
           : null;
-      const alttext = [v.title, v.description].filter((s): s is string => !!s).join('\n\n') || null;
-      return {
+      const alttext =
+        [v.title, v.description].filter((s): s is string => !!s).join('\n\n') || null;
+      const caption = await readCaption(subsDir, v.id, subFiles);
+      if (caption) captionsHit++;
+      results.push({
         postid: v.id,
         posturl: url,
         alttext,
@@ -100,6 +179,17 @@ export const youtubeScraper: ScraperAdapter = async (username, limit) => {
         hashtags: v.tags && v.tags.length ? v.tags : null,
         carouselimages: null,
         music_info: null,
-      };
-    });
+        transcript: caption?.text ?? null,
+        transcript_source: caption ? `youtube_auto_subs:${caption.lang}` : null,
+      });
+    }
+    logger.info(`[${username}/youtube] legendas auto: ${captionsHit}/${results.length}`, {});
+    return results;
+  } finally {
+    try {
+      rmSync(subsDir, { recursive: true, force: true });
+    } catch {
+      // ignore — temp dir cleanup nao deve quebrar o scrape
+    }
+  }
 };
