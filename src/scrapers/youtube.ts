@@ -123,6 +123,10 @@ export const youtubeScraper: ScraperAdapter = async (username, limit) => {
   try {
     const items = await ytDlpJson([
       '--dump-json',
+      // --dump-json implica --simulate (yt-dlp nao escreve nada). Sem
+      // --no-simulate, o --write-auto-subs e ignorado silenciosamente
+      // mesmo o JSON listando automatic_captions cheio.
+      '--no-simulate',
       '--write-auto-subs',
       // pt-orig = legenda auto a partir do AUDIO em pt (alta qualidade).
       // Quando nao tem, cai em pt-BR/pt/pt-PT (geralmente traducao).
