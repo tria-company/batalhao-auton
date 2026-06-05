@@ -47,12 +47,15 @@ async function download(url: string, dest: string): Promise<void> {
   await writeFile(dest, Buffer.from(await res.arrayBuffer()));
 }
 
-/** Baixa o audio (mp3) de uma pagina (TikTok/YouTube/etc.) via yt-dlp. */
+/** Baixa o audio (mp3) de uma pagina (TikTok/YouTube/etc.) via yt-dlp.
+ * Usa o BINARIO yt-dlp (`config.ytDlpBin`) em vez de `python -m yt_dlp` — o
+ * binario standalone esta no VPS, evita dep Python e fica consistente com o
+ * adapter `src/scrapers/youtube.ts`. */
 async function ytdlpAudio(pageurl: string, dir: string): Promise<string> {
   const out = join(dir, 'src.%(ext)s');
   await execFileAsync(
-    'python',
-    ['-m', 'yt_dlp', '-x', '--audio-format', 'mp3', '--no-playlist', '--quiet', '--no-warnings', '-o', out, pageurl],
+    config.ytDlpBin,
+    ['-x', '--audio-format', 'mp3', '--no-playlist', '--quiet', '--no-warnings', '-o', out, pageurl],
     { timeout: 180_000, maxBuffer: 1024 * 1024 * 16 },
   );
   return join(dir, 'src.mp3');
