@@ -2,15 +2,23 @@ import { config } from '../config';
 import { runApifyActor } from './apifyClient';
 import type { RawScrapedPost, ScraperAdapter } from './types';
 
-/** Subset do output do actor `apify/instagram-profile-scraper` (resultsType=posts). */
-interface ApifyIgItem {
+/**
+ * Output de `apify/instagram-profile-scraper` (resultsType=posts): 1 item
+ * top-level POR PERFIL, com os posts dentro de `latestPosts: [...]`. O
+ * actor ignora `resultsLimit` (sempre devolve ~12), entao fazemos o slice
+ * no client pra respeitar o limite pedido.
+ */
+interface ApifyIgProfileItem {
+  username?: string;
+  latestPosts?: ApifyIgPost[];
+}
+
+interface ApifyIgPost {
   id?: string;
   shortCode?: string;
   url?: string;
   /** 'Video' | 'Image' | 'Sidecar' */
   type?: string;
-  /** 'feed' | 'clips' (reel) etc. */
-  productType?: string;
   caption?: string;
   hashtags?: string[];
   displayUrl?: string;
@@ -22,55 +30,54 @@ interface ApifyIgItem {
   commentsCount?: number;
   /** ISO 8601 */
   timestamp?: string;
-  /** Carrossel — algumas versoes do actor usam `images`, outras `childPosts`. */
+  /** Carrossel — URLs das midias filhas. */
   images?: string[];
-  childPosts?: Array<{ displayUrl?: string }>;
 }
 
-function carouselUrls(it: ApifyIgItem): string[] | null {
-  if (it.images?.length) return it.images;
-  const urls = (it.childPosts ?? [])
-    .map((c) => c.displayUrl)
-    .filter((u): u is string => typeof u === 'string' && u.length > 0);
-  return urls.length ? urls : null;
+function mapPost(p: ApifyIgPost): RawScrapedPost {
+  const carousel = p.images?.length ? p.images : null;
+  const isCarousel = p.type === 'Sidecar' || !!carousel;
+  const mediatype = p.type === 'Video' ? 'video' : isCarousel ? 'carousel' : 'image';
+  const postid = p.shortCode ?? p.id ?? '';
+  const posturl = p.url ?? (p.shortCode ? `https://www.instagram.com/p/${p.shortCode}/` : null);
+  return {
+    postid,
+    posturl,
+    alttext: p.caption ?? null,
+    mediatype,
+    mediaurl: p.displayUrl ?? null,
+    thumbnail_url: p.displayUrl ?? null,
+    videourl: p.videoUrl ?? null,
+    iscarousel: isCarousel,
+    duration_seconds: p.videoDuration ?? null,
+    posted_at: p.timestamp ?? null,
+    views_count: p.videoViewCount ?? null,
+    plays_count: p.videoPlayCount ?? null,
+    likes_count: p.likesCount ?? null,
+    comments_count: p.commentsCount ?? null,
+    shares_count: null,
+    saves_count: null,
+    reshares_count: null,
+    hashtags: p.hashtags?.length ? p.hashtags : null,
+    carouselimages: carousel,
+    music_info: null,
+  };
 }
 
 export const instagramScraper: ScraperAdapter = async (username, limit) => {
-  const items = (await runApifyActor(config.apifyInstagramActor, {
+  const profiles = (await runApifyActor(config.apifyInstagramActor, {
     usernames: [username],
     resultsType: 'posts',
     resultsLimit: limit,
-  })) as ApifyIgItem[];
+  })) as ApifyIgProfileItem[];
 
-  return items
-    .map((it): RawScrapedPost => {
-      const carousel = carouselUrls(it);
-      const isCarousel = it.type === 'Sidecar' || !!carousel;
-      const mediatype = it.type === 'Video' ? 'video' : isCarousel ? 'carousel' : 'image';
-      const postid = it.shortCode ?? it.id ?? '';
-      const posturl = it.url ?? (it.shortCode ? `https://www.instagram.com/p/${it.shortCode}/` : null);
-      return {
-        postid,
-        posturl,
-        alttext: it.caption ?? null,
-        mediatype,
-        mediaurl: it.displayUrl ?? null,
-        thumbnail_url: it.displayUrl ?? null,
-        videourl: it.videoUrl ?? null,
-        iscarousel: isCarousel,
-        duration_seconds: it.videoDuration ?? null,
-        posted_at: it.timestamp ?? null,
-        views_count: it.videoViewCount ?? null,
-        plays_count: it.videoPlayCount ?? null,
-        likes_count: it.likesCount ?? null,
-        comments_count: it.commentsCount ?? null,
-        shares_count: null,
-        saves_count: null,
-        reshares_count: null,
-        hashtags: it.hashtags?.length ? it.hashtags : null,
-        carouselimages: carousel,
-        music_info: null,
-      };
-    })
+  const allPosts: ApifyIgPost[] = [];
+  for (const prof of profiles) {
+    if (Array.isArray(prof.latestPosts)) allPosts.push(...prof.latestPosts);
+  }
+
+  return allPosts
+    .slice(0, limit)
+    .map(mapPost)
     .filter((p) => p.postid.length > 0);
 };
