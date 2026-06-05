@@ -94,7 +94,9 @@ async function readCaption(
   videoId: string,
   files: string[],
 ): Promise<{ text: string; lang: string } | null> {
-  const langPrefs = ['pt-BR', 'pt-br', 'pt', 'pt-PT', 'pt-pt'];
+  // pt-orig (legenda do audio original) tem precedencia — qualidade muito
+  // melhor que pt/pt-PT que costumam ser auto-translate.
+  const langPrefs = ['pt-orig', 'pt-BR', 'pt-br', 'pt', 'pt-PT', 'pt-pt'];
   for (const lang of langPrefs) {
     const fname = `${videoId}.${lang}.vtt`;
     if (!files.includes(fname)) continue;
@@ -122,11 +124,18 @@ export const youtubeScraper: ScraperAdapter = async (username, limit) => {
     const items = await ytDlpJson([
       '--dump-json',
       '--write-auto-subs',
+      // pt-orig = legenda auto a partir do AUDIO em pt (alta qualidade).
+      // Quando nao tem, cai em pt-BR/pt/pt-PT (geralmente traducao).
       '--sub-lang',
-      'pt-BR,pt-br,pt,pt-PT',
+      'pt-orig,pt-BR,pt-br,pt,pt-PT',
       '--sub-format',
       'vtt',
       '--skip-download',
+      // Versoes recentes do yt-dlp exigem runtime JS pra resolver URLs assinadas
+      // do YouTube (sem isso, --list-subs lista mas o download falha em silencio).
+      // Node ja esta no PATH do VPS; em outras maquinas pode trocar p/ deno/bun.
+      '--js-runtimes',
+      'node',
       '--playlist-end',
       String(limit),
       '--no-warnings',
