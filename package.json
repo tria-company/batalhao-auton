@@ -1,0 +1,29 @@
+{
+  "name": "auton-embaixadores-pipeline",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Pipeline de IA (7 agentes / 4 camadas) para avaliacao de embaixadores da Auton Health — GPT-4.1 mini + Supabase. Ver PRD_Embaixadores.md.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "pipeline": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "dotenv": "^16.4.5",
+    "openai": "^4.77.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.4",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.2"
+  }
+}
