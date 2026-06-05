@@ -65,6 +65,16 @@ export const config = {
   usdBrlRate: Number(optional('USD_BRL_RATE', '6.0')),
   /** Quantos posts processar em paralelo por (perfil, rede). */
   pipelineConcurrency: Number(optional('PIPELINE_CONCURRENCY', '5')),
+
+  // Scraper externo (popula scrappers_contents)
+  /** Token da Apify (usado pelos adapters de Instagram e TikTok). */
+  apifyToken: optional('APIFY_TOKEN', ''),
+  /** Actor da Apify pro Instagram (formato `username~actor-name`). */
+  apifyInstagramActor: optional('APIFY_INSTAGRAM_ACTOR', 'apify~instagram-profile-scraper'),
+  /** Actor da Apify pro TikTok. */
+  apifyTiktokActor: optional('APIFY_TIKTOK_ACTOR', 'clockworks~tiktok-scraper'),
+  /** Binario do yt-dlp (no PATH por padrao). */
+  ytDlpBin: optional('YT_DLP_BIN', 'yt-dlp'),
 } as const;
 
 /** As 3 redes suportadas pelo pipeline. */

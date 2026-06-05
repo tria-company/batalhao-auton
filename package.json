@@ -9,6 +9,7 @@
   },
   "scripts": {
     "pipeline": "tsx src/cli.ts",
+    "scrape": "tsx src/scrape-cli.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
