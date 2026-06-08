@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabase } from '../lib/supabase';
 
 /**
  * READ-ONLY: verifica no banco se TODAS as analises de TODOS os materiais
@@ -7,10 +7,11 @@ import { createClient } from '@supabase/supabase-js';
  * post_analysis (C1+2), profile_synthesis (C3) e profile_cross_brief (C4).
  *   npx tsx src/scripts/verify-coverage.ts
  * Nao grava nada.
+ *
+ * Usa getSupabase() (transport ws) — necessario no Node 20 do VPS, onde o
+ * createClient() cru quebra por falta de WebSocket nativo.
  */
-const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
+const sb = getSupabase();
 const N = Number(process.env.POSTS_PER_PROFILE ?? 50);
 const PLATFORMS = ['instagram', 'tiktok', 'youtube'] as const;
 type Row = Record<string, unknown>;
