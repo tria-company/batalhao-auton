@@ -1,5 +1,6 @@
 import type { Platform } from '../config';
 import { getSupabase } from '../lib/supabase';
+import { mirrorPostMedia } from '../lib/mediaMirror';
 import type { RawScrapedPost } from '../scrapers/types';
 import { upsertByKeys } from './upsert';
 
@@ -7,13 +8,17 @@ import { upsertByKeys } from './upsert';
  * Upsert idempotente em scrappers_contents por (platform, postid). Usa
  * `upsertByKeys` que ja faz select-then-update/insert — nao depende de
  * UNIQUE constraint no banco (a memoria do projeto sinaliza que falta).
+ *
+ * Antes de gravar, espelha a midia do CDN pro MinIO (`mirrorPostMedia`) e
+ * grava as URLs do MinIO — no-op quando MIRROR_MEDIA esta desligado.
  */
 export async function upsertScrapedPost(
   username: string,
   platform: Platform,
   post: RawScrapedPost,
 ): Promise<void> {
-  const { postid, ...rest } = post;
+  const mirrored = await mirrorPostMedia(username, platform, post);
+  const { postid, ...rest } = mirrored;
   await upsertByKeys(
     'scrappers_contents',
     { platform, postid },

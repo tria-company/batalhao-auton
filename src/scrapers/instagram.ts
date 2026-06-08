@@ -34,7 +34,8 @@ interface ApifyIgPost {
   images?: string[];
 }
 
-function mapPost(p: ApifyIgPost): RawScrapedPost {
+/** Exposto p/ o webhook reusar a transformação Apify→RawScrapedPost sem re-scrape. */
+export function mapPostInstagram(p: ApifyIgPost): RawScrapedPost {
   const carousel = p.images?.length ? p.images : null;
   const isCarousel = p.type === 'Sidecar' || !!carousel;
   const mediatype = p.type === 'Video' ? 'video' : isCarousel ? 'carousel' : 'image';
@@ -80,6 +81,23 @@ export const instagramScraper: ScraperAdapter = async (username, limit) => {
 
   return allPosts
     .slice(0, limit)
-    .map(mapPost)
+    .map(mapPostInstagram)
     .filter((p) => p.postid.length > 0);
 };
+
+/** Extrai os posts brutos do payload do actor `apify/instagram-profile-scraper`. */
+export function extractInstagramPostsFromItems(items: unknown[]): ApifyIgPost[] {
+  const out: ApifyIgPost[] = [];
+  for (const it of items as ApifyIgProfileItem[]) {
+    if (Array.isArray(it?.latestPosts)) out.push(...it.latestPosts);
+  }
+  return out;
+}
+
+/** Extrai o `username` do perfil raspado (top-level do item Apify). */
+export function extractInstagramUsername(items: unknown[]): string | null {
+  for (const it of items as ApifyIgProfileItem[]) {
+    if (it?.username) return it.username;
+  }
+  return null;
+}

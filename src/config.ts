@@ -75,6 +75,20 @@ export const config = {
   apifyTiktokActor: optional('APIFY_TIKTOK_ACTOR', 'clockworks~tiktok-scraper'),
   /** Binario do yt-dlp (no PATH por padrao). */
   ytDlpBin: optional('YT_DLP_BIN', 'yt-dlp'),
+
+  // MinIO (storage de midia — substitui o Supabase Storage). O ingest baixa a
+  // midia do CDN e espelha pro MinIO, gravando a URL publica do MinIO no banco.
+  /** Liga o espelhamento de midia pro MinIO. Desligado => grava a URL do CDN. */
+  mirrorMedia: optional('MIRROR_MEDIA', 'true') === 'true',
+  /** Endpoint S3 do MinIO (sem barra final). */
+  minioEndpoint: optional('MINIO_ENDPOINT', 'https://s3.134.195.89.165.sslip.io').replace(/\/+$/, ''),
+  /** Bucket de destino da midia. */
+  minioBucket: optional('MINIO_BUCKET', 'batalhao-auton'),
+  /** Regiao usada na assinatura SigV4 (MinIO ignora, mas precisa bater). */
+  minioRegion: optional('MINIO_REGION', 'us-east-1'),
+  /** Access/Secret S3 do MinIO — lidos direto do env (vazio => mirror desliga). */
+  minioAccessKey: (process.env.MINIO_ACCESS_KEY ?? '').trim(),
+  minioSecretKey: (process.env.MINIO_SECRET_KEY ?? '').trim(),
 } as const;
 
 /** As 3 redes suportadas pelo pipeline. */

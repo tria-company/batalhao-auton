@@ -31,6 +31,34 @@ function extractHashtags(raw: ApifyTtItem['hashtags']): string[] | null {
   return tags.length ? tags : null;
 }
 
+/** Exposto p/ o webhook reusar a transformação Apify→RawScrapedPost sem re-scrape. */
+export function mapPostTiktok(it: ApifyTtItem): RawScrapedPost {
+  return {
+    postid: it.id ?? '',
+    posturl: it.webVideoUrl ?? null,
+    alttext: it.text ?? null,
+    mediatype: 'video',
+    mediaurl: it.videoMeta?.coverUrl ?? null,
+    thumbnail_url: it.videoMeta?.coverUrl ?? null,
+    videourl: it.videoMeta?.downloadAddr ?? null,
+    iscarousel: false,
+    duration_seconds: it.videoMeta?.duration ?? null,
+    posted_at: it.createTimeISO ?? null,
+    views_count: it.playCount ?? null,
+    plays_count: it.playCount ?? null,
+    likes_count: it.diggCount ?? null,
+    comments_count: it.commentCount ?? null,
+    shares_count: it.shareCount ?? null,
+    saves_count: it.collectCount ?? null,
+    reshares_count: null,
+    hashtags: extractHashtags(it.hashtags),
+    carouselimages: null,
+    music_info: it.musicMeta ?? null,
+    transcript: null,
+    transcript_source: null,
+  };
+}
+
 export const tiktokScraper: ScraperAdapter = async (username, limit) => {
   const items = (await runApifyActor(config.apifyTiktokActor, {
     profiles: [username],
@@ -40,29 +68,11 @@ export const tiktokScraper: ScraperAdapter = async (username, limit) => {
   })) as ApifyTtItem[];
 
   return items
-    .map((it): RawScrapedPost => ({
-      postid: it.id ?? '',
-      posturl: it.webVideoUrl ?? null,
-      alttext: it.text ?? null,
-      mediatype: 'video',
-      mediaurl: it.videoMeta?.coverUrl ?? null,
-      thumbnail_url: it.videoMeta?.coverUrl ?? null,
-      videourl: it.videoMeta?.downloadAddr ?? null,
-      iscarousel: false,
-      duration_seconds: it.videoMeta?.duration ?? null,
-      posted_at: it.createTimeISO ?? null,
-      views_count: it.playCount ?? null,
-      plays_count: it.playCount ?? null,
-      likes_count: it.diggCount ?? null,
-      comments_count: it.commentCount ?? null,
-      shares_count: it.shareCount ?? null,
-      saves_count: it.collectCount ?? null,
-      reshares_count: null,
-      hashtags: extractHashtags(it.hashtags),
-      carouselimages: null,
-      music_info: it.musicMeta ?? null,
-      transcript: null,
-      transcript_source: null,
-    }))
+    .map(mapPostTiktok)
     .filter((p) => p.postid.length > 0);
 };
+
+/** Cast utilitário p/ o webhook: items do dataset do TikTok scraper. */
+export function castTiktokItems(items: unknown[]): ApifyTtItem[] {
+  return items as ApifyTtItem[];
+}
